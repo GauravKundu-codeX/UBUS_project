@@ -1,13 +1,15 @@
 // 1. Saare packages ko import karein
 const express = require('express');
 const http = require('http');
-const mysql = require('mysql2/promise');
+// --- CHANGE ---
+const { Pool } = require('pg'); // mysql2 ki jagah 'pg' (Postgres)
+// --- END CHANGE ---
 const cors = require('cors');
 require('dotenv').config(); 
 const bcrypt = require('bcryptjs'); 
 const jwt = require('jsonwebtoken'); 
 const crypto = require('crypto'); 
-const { Server } = require('socket.io'); // Real-time ke liye
+const { Server } = require('socket.io'); 
 
 // 2. Server setup
 const app = express();
@@ -16,85 +18,73 @@ app.use(express.json());
 
 const server = http.createServer(app);
 
-// 3. NAYA SOCKET.IO SETUP (YAHAN FIX KIYA HAI)
+// 3. Socket.IO Setup
 const io = new Server(server, {
   cors: {
-    // Humne 5174 aur 5175, dono ko allow kar diya hai
-    origin: ["http://localhost:5173", "http://localhost:5174"], 
+    // Hum localhost (5174, 5175) aur Render (frontend) ko allow karenge
+    origin: [
+      "http://localhost:5174", 
+      "http://localhost:5175", 
+      process.env.FRONTEND_URL // Yeh Render se aayega
+    ], 
     methods: ["GET", "POST"]
   }
 });
-// --- FIX YAHAN KHATAM ---
 
-// --- NAYA SOCKET.IO LOGIC YAHAN SE SHURU ---
 io.on('connection', (socket) => {
   console.log(`Socket connected: ${socket.id}`);
-
-  // Jab Student/Driver ek room join kare
   socket.on('joinRouteRoom', (routeNumber) => {
-    socket.join(routeNumber); // Student ko uske routeNumber waale room mein daal do
+    socket.join(routeNumber);
     console.log(`Socket ${socket.id} joined room: ${routeNumber}`);
   });
-
-  // Jab Driver apni location bheje
   socket.on('sendLocation', (data) => {
-    // console.log('Location received:', data);
-    // Yeh location usi route ke room mein broadcast kar do
     io.to(data.routeNumber).emit('locationUpdate', {
       location: data.location,
       routeNumber: data.routeNumber
     });
   });
-
-  // Jab Driver trip start/stop kare
   socket.on('tripStatus', (data) => {
-    // Yeh status usi route ke room mein broadcast kar do
     io.to(data.routeNumber).emit('tripStatus', {
       isActive: data.isActive,
       routeNumber: data.routeNumber
     });
   });
-
   socket.on('disconnect', () => {
     console.log(`Socket disconnected: ${socket.id}`);
   });
 });
-// --- NAYA SOCKET.IO LOGIC YAHAN KHATAM ---
 
-
-// 4. Database Connection Pool
-const dbConfig = {
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  multipleStatements: true 
-};
-
-const pool = mysql.createPool(dbConfig);
+// 4. Database Connection Pool (--- YEH POORA BADLA HAI ---)
+const pool = new Pool({
+  // Hum Render/Neon se 'DATABASE_URL' naam ka ek variable lenge
+  connectionString: process.env.DATABASE_URL,
+  // Render par production ke liye SSL zaroori hai
+  ssl: { rejectUnauthorized: false }
+});
+// --- CHANGE END ---
 
 // 5. Server ko Test Karne ke liye ek API
 app.get('/api/test-db', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT 1 + 1 AS solution');
+    // Query badal gayi hai
+    const result = await pool.query('SELECT 1 + 1 AS solution');
     res.json({
       message: 'Connection successful!',
-      solution: rows[0].solution
+      solution: result.rows[0].solution
     });
   } catch (err) {
+    console.error('Database connection error:', err);
     res.status(500).json({ message: 'Database connection failed' });
   }
 });
 
-// 6. SIGNUP API ROUTE
+// 6. SIGNUP API ROUTE (Query badal gayi hai)
 app.post('/api/signup', async (req, res) => {
   try {
     const { name, email, password, role, collegeId, routeNumber } = req.body;
-    const [existingUsers] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
-    if (existingUsers.length > 0) {
+    // MySQL '?' ki jagah Postgres '$1', '$2' use karta hai
+    const existingUsers = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (existingUsers.rows.length > 0) {
       return res.status(400).json({ message: 'Email already in use' });
     }
     const salt = await bcrypt.genSalt(10);
@@ -103,37 +93,37 @@ app.post('/api/signup', async (req, res) => {
 
     if (role === 'student' && routeNumber) {
        await pool.query(
-        'INSERT INTO users (uid, name, email, password, role, collegeId, routeNumber) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO users (uid, name, email, password, role, "collegeId", "routeNumber") VALUES ($1, $2, $3, $4, $5, $6, $7)',
         [uid, name, email, hashedPassword, role, collegeId || null, routeNumber]
       );
     } else {
        await pool.query(
-        'INSERT INTO users (uid, name, email, password, role, collegeId) VALUES (?, ?, ?, ?, ?, ?)',
+        'INSERT INTO users (uid, name, email, password, role, "collegeId") VALUES ($1, $2, $3, $4, $5, $6)',
         [uid, name, email, hashedPassword, role, collegeId || null]
       );
     }
     res.status(201).json({ message: 'User created successfully!' });
   } catch (err) {
+    console.error('Signup Error:', err);
     res.status(500).json({ message: 'Server error during signup' });
   }
 });
 
-// 7. LOGIN API ROUTE
+// 7. LOGIN API ROUTE (Query badal gayi hai)
 app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    const [users] = await pool.query(
-      // Login par hi user ka routeNumber aur routeId fetch kar lo
-      `SELECT u.*, r.id as routeId 
+    const result = await pool.query(
+      `SELECT u.*, r.id as "routeId" 
        FROM users u 
-       LEFT JOIN routes r ON u.routeNumber = r.routeNumber
-       WHERE u.email = ?`,
+       LEFT JOIN routes r ON u."routeNumber" = r."routeNumber"
+       WHERE u.email = $1`,
       [email]
     );
-    if (users.length === 0) {
+    if (result.rows.length === 0) {
       return res.status(400).json({ message: 'Invalid credentials (email)' });
     }
-    const user = users[0];
+    const user = result.rows[0];
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid credentials (password)' });
@@ -141,7 +131,7 @@ app.post('/api/login', async (req, res) => {
     const payload = { user: { id: user.id, uid: user.uid, role: user.role } };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30d' });
     
-    // User ki saari details (password ke bina) frontend ko bhej do
+    // User data (Postgres camelCase mein nahin, lowercase mein bhejta hai)
     res.json({
       message: 'Login successful!',
       token: token,
@@ -150,9 +140,9 @@ app.post('/api/login', async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        collegeId: user.collegeId,
-        routeNumber: user.routeNumber,
-        routeId: user.routeId // Yeh student/driver ko assign karne ke liye
+        collegeId: user.collegeId, // Postgres ne isse lowercase kar diya hoga
+        routeNumber: user.routeNumber, // Postgres ne isse lowercase kar diya hoga
+        routeId: user.routeId
       }
     });
   } catch (err) {
@@ -161,153 +151,119 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-
-// 8. ADMIN API ROUTES (Routes, Buses, Drivers, Assign)
-// GET ALL ROUTES
+// 8. ADMIN API ROUTES
 app.get('/api/routes', async (req, res) => {
   try {
-    const [routes] = await pool.query('SELECT * FROM routes ORDER BY routeNumber');
-    res.json(routes);
+    const result = await pool.query('SELECT * FROM routes ORDER BY "routeNumber"');
+    res.json(result.rows);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// ADD A NEW ROUTE
 app.post('/api/routes', async (req, res) => {
   try {
     const { routeNumber, stops } = req.body;
-    await pool.query('INSERT INTO routes (routeNumber, stops) VALUES (?, ?)', [routeNumber, JSON.stringify(stops) || null]);
+    await pool.query('INSERT INTO routes ("routeNumber", stops) VALUES ($1, $2)', [routeNumber, JSON.stringify(stops) || null]);
     res.status(201).json({ message: 'Route added!' });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// GET ALL BUSES (VIEW) - YEH STUDENT DASHBOARD BHI USE KAREGA
 app.get('/api/buses', async (req, res) => {
   try {
-    // Humara banaya hua VIEW yahan call hoga
-    const [buses] = await pool.query('SELECT * FROM v_bus_details');
-    res.json(buses);
+    const result = await pool.query('SELECT * FROM v_bus_details');
+    res.json(result.rows);
   } catch (err) {
-    console.error('Error fetching v_bus_details:', err);
-    res.status(500).json({ message: 'Server error fetching buses', error: err.message });
+    res.status(500).json({ message: 'Server error fetching buses' });
   }
 });
 
-// ADD A NEW BUS
 app.post('/api/buses', async (req, res) => {
   try {
     const { busNumber } = req.body;
-    await pool.query('INSERT INTO buses (busNumber) VALUES (?)', [busNumber]);
+    await pool.query('INSERT INTO buses ("busNumber") VALUES ($1)', [busNumber]);
     res.status(201).json({ message: 'Bus added!' });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// GET ALL DRIVERS
 app.get('/api/drivers', async (req, res) => {
   try {
-    // Hum 'id' (INT) ki jagah 'uid' (VARCHAR) bhejenge,
-    // taaki Stored Procedure mein confusion na ho
-    const [drivers] = await pool.query("SELECT uid, name, collegeId FROM users WHERE role = 'driver'");
-    res.json(drivers);
+    const result = await pool.query('SELECT uid, name, "collegeId" FROM users WHERE role = $1', ['driver']);
+    res.json(result.rows);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// ASSIGN BUS TO DRIVER (STORED PROCEDURE)
+// ASSIGN (Stored Procedure ko Postgres mein FUNCTION kehte hain)
 app.post('/api/assign', async (req, res) => {
   try {
-    // Frontend se 'driverUid' (VARCHAR), 'busId' (INT), aur 'routeNumber' (VARCHAR) aayega
-    const { driverUid, busId, routeNumber } = req.body; 
-
+    const { driverUid, busId, routeNumber } = req.body;
     if (!driverUid || !busId || !routeNumber) {
       return res.status(400).json({ message: 'driverUid, busId, and routeNumber are required.' });
     }
-
-    // Stored Procedure ko call karein (jo humne SQL mein banaya tha)
+    // Hum Stored Function ko call karenge
     await pool.query(
-      'CALL sp_AssignDriverToBus(?, ?, ?)',
+      "SELECT sp_AssignDriverToBus($1, $2, $3)",
       [driverUid, busId, routeNumber]
     );
-    
     res.json({ message: 'Assignment successful!' });
-    
   } catch (err) {
     console.error('Assignment Error:', err);
     res.status(500).json({ message: 'Server error during assignment' });
   }
 });
 
-// --- DRIVER API ROUTES YAHAN SE SHURU ---
-
-// 13. GET MY ASSIGNED BUS (Driver Dashboard ke liye)
+// 9. DRIVER API ROUTES
 app.get('/api/my-bus', async (req, res) => {
   try {
-    const { driverUid } = req.query; // Yeh frontend se 'user.uid' aayega
+    const { driverUid } = req.query;
     if (!driverUid) {
       return res.status(400).json({ message: 'Driver UID is required' });
     }
-
-    const [buses] = await pool.query(
-      'SELECT * FROM v_bus_details WHERE driverUid = ?',
+    const result = await pool.query(
+      'SELECT * FROM v_bus_details WHERE "driverUid" = $1',
       [driverUid]
     );
-
-    if (buses.length > 0) {
-      res.json(buses[0]); // Driver ko sirf ek hi bus assign hogi
+    if (result.rows.length > 0) {
+      res.json(result.rows[0]);
     } else {
       res.status(404).json({ message: 'No bus assigned to this driver' });
     }
   } catch (err) {
-    console.error('Error fetching driver bus:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// 14. UPDATE TRIP STATUS (Driver 'Start/Stop' button se)
 app.post('/api/trip-status', async (req, res) => {
   try {
     const { busId, isTripActive } = req.body;
-
     await pool.query(
-      'UPDATE buses SET isTripActive = ? WHERE id = ?',
+      'UPDATE buses SET "isTripActive" = $1 WHERE id = $2',
       [isTripActive, busId]
     );
-    
-    // MySQL Trigger (`trg_after_bus_status_update`) 
-    // apna kaam karega aur bus_audit_log mein entry daal dega.
-    
     res.json({ message: 'Trip status updated!' });
   } catch (err) {
-    console.error('Error updating trip status:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// 15. NAYA: UPDATE BUS LOCATION (Yeh driver har 10 sec mein bhejega)
 app.post('/api/update-location', async (req, res) => {
   try {
     const { busId, lat, lng } = req.body;
-    
     await pool.query(
-      'UPDATE buses SET lat = ?, lng = ?, lastUpdate = CURRENT_TIMESTAMP WHERE id = ?',
+      'UPDATE buses SET lat = $1, lng = $2, "lastUpdate" = CURRENT_TIMESTAMP WHERE id = $3',
       [lat, lng, busId]
     );
-    
     res.json({ message: 'Location updated' });
   } catch(err) {
-    console.error('Error updating location:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
-
-// --- DRIVER API ROUTES YAHAN KHATAM ---
-
 
 // Server ko Start karein
 const PORT = process.env.PORT || 3001;
