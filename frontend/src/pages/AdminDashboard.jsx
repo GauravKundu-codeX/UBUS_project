@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 // Hamare backend server ka URL
-const API_URL = 'http://localhost:3001/api';
+// const API_URL = 'http://localhost:3001/api';
+const API_URL = `${import.meta.env.VITE_API_BASE_URL}/api`;
+
 
 function AdminDashboard({ user, onLogout }) {
   // 3 collections ke liye state

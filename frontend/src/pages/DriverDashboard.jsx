@@ -4,8 +4,12 @@ import { io } from 'socket.io-client';
 import MapComponent from '../components/MapComponent';
 
 // Hamare backend server ka URL
-const API_URL = 'http://localhost:3001/api';
-const SOCKET_URL = 'http://localhost:3001';
+// const API_URL = 'http://localhost:3001/api';
+const API_URL = `${import.meta.env.VITE_API_BASE_URL}/api`;
+
+// const SOCKET_URL = 'http://localhost:3001';
+const SOCKET_URL = import.meta.env.VITE_API_BASE_URL;
+
 
 // --- YEH RAHA FIX ---
 // Socket ko component ke bahar (outside) banayein
