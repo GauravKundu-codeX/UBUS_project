@@ -147,15 +147,16 @@ app.post('/api/login', async (req, res) => {
     res.json({
       message: 'Login successful!',
       token: token,
-      user: {
-        uid: user.uid,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        collegeId: user.collegeId,
-        routeNumber: user.routeNumber,
-        routeId: user.routeId // Yeh student/driver ko assign karne ke liye
-      }
+        user: {
+          id: user.id,              // ✅ REQUIRED
+          uid: user.uid,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          collegeId: user.collegeId,
+          routeNumber: user.routeNumber,
+          routeId: user.routeId
+  }
     });
   } catch (err) {
     console.error('Login Error:', err);
