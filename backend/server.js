@@ -311,6 +311,98 @@ app.post('/api/update-location', async (req, res) => {
 
 // --- DRIVER API ROUTES YAHAN KHATAM ---
 
+// ✅ ✅ ✅ COMPLAINTS FEATURE (NEW) ✅ ✅ ✅
+
+// 1️⃣ STUDENT: Submit a Complaint
+app.post('/api/complaints', async (req, res) => {
+  try {
+    const { user_id, bus_id, driver_id, category, description } = req.body;
+
+    if (!user_id || !category || !description) {
+      return res.status(400).json({ message: 'Required fields missing' });
+    }
+
+    await pool.query(
+      `INSERT INTO complaints (user_id, bus_id, driver_id, category, description)
+       VALUES (?, ?, ?, ?, ?)`,
+      [user_id, bus_id || null, driver_id || null, category, description]
+    );
+
+    res.status(201).json({ message: 'Complaint submitted successfully!' });
+  } catch (err) {
+    console.error('Complaint Error:', err);
+    res.status(500).json({ message: 'Server error while submitting complaint' });
+  }
+});
+
+
+// 2️⃣ STUDENT: Get My Complaints
+app.get('/api/complaints/user/:user_id', async (req, res) => {
+  try {
+    const { user_id } = req.params;
+
+    const [rows] = await pool.query(
+      `SELECT c.*, b.busNumber, u.name AS driverName
+       FROM complaints c
+       LEFT JOIN buses b ON c.bus_id = b.id
+       LEFT JOIN users u ON c.driver_id = u.id
+       WHERE c.user_id = ?
+       ORDER BY c.created_at DESC`,
+      [user_id]
+    );
+
+    res.json(rows);
+  } catch (err) {
+    console.error('Fetch Error:', err);
+    res.status(500).json({ message: 'Server error fetching complaints' });
+  }
+});
+
+
+// 3️⃣ ADMIN: Get ALL Complaints
+app.get('/api/complaints', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT c.*, s.name AS studentName, b.busNumber, d.name AS driverName
+       FROM complaints c
+       LEFT JOIN users s ON c.user_id = s.id
+       LEFT JOIN buses b ON c.bus_id = b.id
+       LEFT JOIN users d ON c.driver_id = d.id
+       ORDER BY c.created_at DESC`
+    );
+
+    res.json(rows);
+  } catch (err) {
+    console.error('Admin Fetch Error:', err);
+    res.status(500).json({ message: 'Server error fetching all complaints' });
+  }
+});
+
+
+// 4️⃣ ADMIN: Update Complaint Status
+app.put('/api/complaints/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({ message: 'Status is required' });
+    }
+
+    await pool.query(
+      `UPDATE complaints
+       SET status = ?, resolved_at = IF(? = 'Resolved', NOW(), NULL)
+       WHERE id = ?`,
+      [status, status, id]
+    );
+
+    res.json({ message: 'Status updated successfully!' });
+  } catch (err) {
+    console.error('Update Error:', err);
+    res.status(500).json({ message: 'Server error updating status' });
+  }
+});
+
 
 // Server ko Start karein
 const PORT = process.env.PORT || 3001;
