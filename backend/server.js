@@ -315,26 +315,56 @@ app.post('/api/update-location', async (req, res) => {
 // ✅ ✅ ✅ COMPLAINTS FEATURE (NEW) ✅ ✅ ✅
 
 // 1️⃣ STUDENT: Submit a Complaint
-app.post('/api/complaints', async (req, res) => {
+app.post("/api/complaints", async (req, res) => {
   try {
-    const { user_id, bus_id, driver_id, category, description } = req.body;
+    const { user_id, category, description } = req.body;
 
     if (!user_id || !category || !description) {
-      return res.status(400).json({ message: 'Required fields missing' });
+      return res.status(400).json({ message: "Required fields missing" });
+    }
+
+    const [[student]] = await pool.query(
+      "SELECT TRIM(routeNumber) AS routeNumber FROM users WHERE id = ?",
+      [user_id]
+    );
+
+    let bus_id = null;
+    let driver_id = null;
+
+    if (student?.routeNumber) {
+      const [[busInfo]] = await pool.query(
+        `SELECT b.id AS busId, b.assignedDriverId AS driverId
+         FROM buses b
+         JOIN routes r ON b.assignedRouteId = r.id
+         WHERE r.routeNumber = ?
+         LIMIT 1`,
+        [student.routeNumber]
+      );
+
+      if (busInfo) {
+        bus_id = busInfo.busId;
+        driver_id = busInfo.driverId;
+      }
     }
 
     await pool.query(
       `INSERT INTO complaints (user_id, bus_id, driver_id, category, description)
        VALUES (?, ?, ?, ?, ?)`,
-      [user_id, bus_id || null, driver_id || null, category, description]
+      [user_id, bus_id, driver_id, category, description]
     );
 
-    res.status(201).json({ message: 'Complaint submitted successfully!' });
+    res.status(201).json({
+      message: "Complaint submitted successfully",
+      bus_id,
+      driver_id
+    });
   } catch (err) {
-    console.error('Complaint Error:', err);
-    res.status(500).json({ message: 'Server error while submitting complaint' });
+    console.error("Complaint Error:", err);
+    res.status(500).json({ message: "Server error while submitting complaint" });
   }
 });
+
+
 
 
 // 2️⃣ STUDENT: Get My Complaints
@@ -403,6 +433,62 @@ app.put('/api/complaints/:id', async (req, res) => {
     res.status(500).json({ message: 'Server error updating status' });
   }
 });
+
+// =============================================
+// ✅ ANNOUNCEMENTS SYSTEM (Admin + All Users)
+// =============================================
+
+// 1️⃣ ADMIN — Create a New Announcement
+// CREATE ANNOUNCEMENT (Admin)
+app.post("/api/announcements", async (req, res) => {
+  try {
+    const { title, message, audience, admin_id } = req.body;
+
+    if (!title || !message || !audience || !admin_id) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    await pool.query(
+      `INSERT INTO announcements (title, message, audience, admin_id)
+       VALUES (?, ?, ?, ?)`,
+      [title, message, audience, admin_id]
+    );
+
+    res.json({ message: "Announcement created successfully!" });
+  } catch (err) {
+    console.error("Announcement Creation Error:", err);
+    res.status(500).json({ message: "Server error while creating announcement" });
+  }
+});
+
+// GET ALL ANNOUNCEMENTS
+app.get("/api/announcements", async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT a.*, u.name as adminName
+       FROM announcements a
+       LEFT JOIN users u ON a.admin_id = u.id
+       ORDER BY a.created_at DESC`
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error("Fetch Announcements Error:", err);
+    res.status(500).json({ message: "Server error fetching announcements" });
+  }
+});
+
+// DELETE ANNOUNCEMENT (Admin)
+app.delete("/api/announcements/:id", async (req, res) => {
+  try {
+    await pool.query(`DELETE FROM announcements WHERE id = ?`, [req.params.id]);
+    res.json({ message: "Announcement deleted" });
+  } catch (err) {
+    console.error("Delete Announcement Error:", err);
+    res.status(500).json({ message: "Server error deleting announcement" });
+  }
+});
+
+
 
 
 // Server ko Start karein
