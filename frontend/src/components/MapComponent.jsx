@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
+import '../styles/map.css';
+
 
 // Leaflet ke default icons ko fix karna (Vite ke liye zaroori)
 import 'leaflet/dist/leaflet.css';

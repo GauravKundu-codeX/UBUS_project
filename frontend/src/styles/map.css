@@ -1,0 +1,10 @@
+.leaflet-container {
+  background: #ffffff !important;
+}
+
+.bus-icon {
+  background: #ff0000;
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
+}

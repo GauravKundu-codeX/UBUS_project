@@ -1,0 +1,40 @@
+/* GLOBAL RESET */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Inter', sans-serif;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  background: #ffffff;
+  color: #222;
+}
+
+/* Smooth transitions everywhere */
+* {
+  transition: 0.25s ease;
+}
+
+/* Red neon glow utility */
+.neon-red {
+  box-shadow: 0 0 12px rgba(255, 0, 0, 0.6);
+}
+
+/* Glass effect */
+.glass {
+  backdrop-filter: blur(15px);
+  background: rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(255, 0, 0, 0.2);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 0, 0, 0.7);
+  border-radius: 10px;
+}

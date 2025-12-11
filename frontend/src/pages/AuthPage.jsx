@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import '../styles/auth.css';
 import axios from "axios";
 
 // Backend URL from your Vite .env file
@@ -7,6 +8,7 @@ const API_URL = `${import.meta.env.VITE_API_BASE_URL}/api`;
 function AuthPage({ onLogin }) {
   const [isLogin, setIsLogin] = useState(true);
   const [userType, setUserType] = useState("student");
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -17,6 +19,14 @@ function AuthPage({ onLogin }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Update the selector background position
+  useEffect(() => {
+    const selector = document.querySelector('.user-type-selector');
+    if (selector) {
+      selector.setAttribute('data-active', userType);
+    }
+  }, [userType]);
+
   const resetForm = () => {
     setEmail("");
     setPassword("");
@@ -24,6 +34,15 @@ function AuthPage({ onLogin }) {
     setCollegeId("");
     setRouteNumber("");
     setError("");
+  };
+
+  const toggleAuthMode = () => {
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setIsLogin(!isLogin);
+      resetForm();
+      setIsTransitioning(false);
+    }, 300);
   };
 
   const handleAuthAction = async (e) => {
@@ -34,16 +53,25 @@ function AuthPage({ onLogin }) {
     if (isLogin) {
       // ---------------- LOGIN ----------------
       try {
-        const response = await axios.post(`${API_URL}/login`, {
-          email,
-          password,
-        });
+  const response = await axios.post(`${API_URL}/login`, {
+    email,
+    password,
+  });
 
-        onLogin(response.data);
-      } catch (err) {
-        setError(err.response?.data?.message || "Login failed");
-        console.error("Login Error:", err);
-      }
+  // ✅ Save to localStorage immediately
+  localStorage.setItem("token", response.data.token);
+  localStorage.setItem("user", JSON.stringify(response.data.user));
+
+  // ✅ Pass only user & token to App
+  onLogin({
+    token: response.data.token,
+    user: response.data.user
+  });
+
+} catch (err) {
+  setError(err.response?.data?.message || "Login failed");
+  console.error("Login Error:", err);
+}
     } else {
       // ---------------- SIGNUP ----------------
       if (userType === "admin") {
@@ -64,8 +92,9 @@ function AuthPage({ onLogin }) {
       try {
         await axios.post(`${API_URL}/signup`, signupData);
         setError("Signup successful! Please login.");
-        setIsLogin(true);
-        resetForm();
+        setTimeout(() => {
+          toggleAuthMode();
+        }, 1500);
       } catch (err) {
         setError(err.response?.data?.message || "Signup failed");
         console.error("Signup Error:", err);
@@ -77,11 +106,13 @@ function AuthPage({ onLogin }) {
 
   // ---------------- SIGNUP FIELDS ----------------
   const renderSignUpFields = () => {
+    if (isTransitioning) return null;
+    
     switch (userType) {
       case "student":
         return (
-          <>
-            <p>I am a Student</p>
+          <div className="form-fields">
+            <p>🎓 I am a Student</p>
             <input
               type="text"
               placeholder="Full Name"
@@ -103,13 +134,13 @@ function AuthPage({ onLogin }) {
               onChange={(e) => setRouteNumber(e.target.value)}
               required
             />
-          </>
+          </div>
         );
 
       case "driver":
         return (
-          <>
-            <p>I am a Driver</p>
+          <div className="form-fields">
+            <p>🚌 I am a Driver</p>
             <input
               type="text"
               placeholder="Full Name"
@@ -124,11 +155,15 @@ function AuthPage({ onLogin }) {
               onChange={(e) => setCollegeId(e.target.value)}
               required
             />
-          </>
+          </div>
         );
 
       case "admin":
-        return <p className="message">Admin sign-up is disabled.</p>;
+        return (
+          <div className="form-fields">
+            <p className="message">⚠️ Admin sign-up is disabled.</p>
+          </div>
+        );
 
       default:
         return null;
@@ -137,31 +172,41 @@ function AuthPage({ onLogin }) {
 
   // ---------------- LOGIN FIELDS ----------------
   const renderSignInFields = () => {
-    switch (userType) {
-      case "student":
-        return <p>I am a Student</p>;
-      case "driver":
-        return <p>I am a Driver</p>;
-      case "admin":
-        return <p>I am an Admin</p>;
-      default:
-        return null;
-    }
+    if (isTransitioning) return null;
+    
+    const icons = {
+      student: "🎓",
+      driver: "🚌",
+      admin: "👨‍💼"
+    };
+    
+    const labels = {
+      student: "I am a Student",
+      driver: "I am a Driver",
+      admin: "I am an Admin"
+    };
+
+    return (
+      <div className="form-fields">
+        <p>{icons[userType]} {labels[userType]}</p>
+      </div>
+    );
   };
 
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h1 className="title">UBus (MySQL)</h1>
-        <p className="subtitle">Welcome to the Bus Tracker</p>
+        <h1 className="title">🚌 UBus</h1>
+        <p className="subtitle">Smart Campus Transportation System</p>
 
-        <div className="user-type-selector">
+        <div className="user-type-selector" data-active={userType}>
           <button
             className={userType === "student" ? "active" : ""}
             onClick={() => {
               setUserType("student");
               resetForm();
             }}
+            type="button"
           >
             Student
           </button>
@@ -172,6 +217,7 @@ function AuthPage({ onLogin }) {
               setUserType("driver");
               resetForm();
             }}
+            type="button"
           >
             Driver
           </button>
@@ -183,19 +229,23 @@ function AuthPage({ onLogin }) {
               setIsLogin(true);
               resetForm();
             }}
+            type="button"
           >
             Admin
           </button>
         </div>
 
-        <h2>{isLogin ? "Login" : "Sign Up"}</h2>
+        <h2>{isLogin ? "Welcome Back! 👋" : "Create Account ✨"}</h2>
 
-        <form onSubmit={handleAuthAction}>
+        <form 
+          onSubmit={handleAuthAction} 
+          className={isTransitioning ? 'form-transition' : ''}
+        >
           {isLogin ? renderSignInFields() : renderSignUpFields()}
 
           <input
             type="email"
-            placeholder="Email"
+            placeholder="📧 Email Address"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -203,7 +253,7 @@ function AuthPage({ onLogin }) {
 
           <input
             type="password"
-            placeholder="Password"
+            placeholder="🔒 Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
@@ -216,19 +266,17 @@ function AuthPage({ onLogin }) {
           )}
 
           <button type="submit" disabled={loading || (!isLogin && userType === "admin")}>
-            {loading ? "Processing..." : isLogin ? "Login" : "Sign Up"}
+            {loading ? "Processing..." : isLogin ? "🚀 Login" : "📝 Sign Up"}
           </button>
         </form>
 
         <button
           className="toggle-auth"
-          onClick={() => {
-            setIsLogin(!isLogin);
-            resetForm();
-          }}
-          disabled={userType === "admin"}
+          onClick={toggleAuthMode}
+          disabled={userType === "admin" && !isLogin}
+          type="button"
         >
-          {isLogin ? "Need an account? Sign Up" : "Already have an account? Login"}
+          {isLogin ? "Need an account? Sign Up 📝" : "Already have an account? Login 🚀"}
         </button>
       </div>
     </div>

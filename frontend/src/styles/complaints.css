@@ -1,0 +1,24 @@
+.complaint-page {
+  padding: 20px;
+}
+
+.complaint-page form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.complaint-page textarea {
+  height: 100px;
+}
+
+.complaint-page table {
+  width: 100%;
+  margin-top: 15px;
+  border-collapse: collapse;
+}
+
+.complaint-page th, .complaint-page td {
+  border: 1px solid #ddd;
+  padding: 8px;
+}

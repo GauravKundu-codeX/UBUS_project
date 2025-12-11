@@ -1,108 +1,115 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import "../styles/adminDashboard.css";
+import AdminComplaints from "./AdminComplaints";
+import AdminAnnouncements from "./AdminAnnouncements";
 
-// Hamare backend server ka URL
-// const API_URL = 'http://localhost:3001/api';
 const API_URL = `${import.meta.env.VITE_API_BASE_URL}/api`;
 
-
 function AdminDashboard({ user, onLogout }) {
-  // 3 collections ke liye state
+  const [showComplaints, setShowComplaints] = useState(false);
+  const [showAnnouncements, setShowAnnouncements] = useState(false);
+
   const [routes, setRoutes] = useState([]);
   const [buses, setBuses] = useState([]);
   const [drivers, setDrivers] = useState([]);
 
-  // Naye forms ke liye state
-  const [newRoute, setNewRoute] = useState('');
-  const [newBus, setNewBus] = useState('');
+  const [newRoute, setNewRoute] = useState("");
+  const [newBus, setNewBus] = useState("");
 
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState(''); // Success messages ke liye
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
-  // Helper function: sab data fetch karega
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 3 API calls ek saath (Promise.all)
       const [routesRes, busesRes, driversRes] = await Promise.all([
         axios.get(`${API_URL}/routes`),
-        axios.get(`${API_URL}/buses`), // Yeh 'v_bus_details' VIEW ko call karega
+        axios.get(`${API_URL}/buses`),
         axios.get(`${API_URL}/drivers`)
       ]);
-
       setRoutes(routesRes.data);
       setBuses(busesRes.data);
       setDrivers(driversRes.data);
-      setError('');
-
-    } catch (err) {
-      setError('Failed to fetch data. Is the backend server running?');
+      setError("");
+    } catch {
+      setError("Failed to fetch data.");
     }
     setLoading(false);
   };
 
-  // Jab page load ho, tab data fetch karein
   useEffect(() => {
     fetchData();
   }, []);
 
-  // Success message ko thodi der dikhane ke liye
-  const showMessage = (msg) => {
+  const showMessageTimed = (msg) => {
     setMessage(msg);
-    setTimeout(() => setMessage(''), 3000); // 3 sec baad message hide kar dein
+    setTimeout(() => setMessage(""), 3000);
   };
 
-  // --- Form Handlers ---
   const handleAddRoute = async (e) => {
     e.preventDefault();
-    if (!newRoute) return;
+    if (!newRoute.trim()) return;
     try {
-      await axios.post(`${API_URL}/routes`, { routeNumber: newRoute, stops: [] });
-      showMessage(`Route ${newRoute} added!`);
-      setNewRoute('');
-      fetchData(); // List ko refresh karein
-    } catch (err) {
-      setError("Failed to add route.");
+      await axios.post(`${API_URL}/routes`, {
+        routeNumber: newRoute,
+        stops: []
+      });
+      showMessageTimed(`Route ${newRoute} added`);
+      setNewRoute("");
+      fetchData();
+    } catch {
+      setError("Failed to add route");
     }
   };
 
   const handleAddBus = async (e) => {
     e.preventDefault();
-    if (!newBus) return;
+    if (!newBus.trim()) return;
     try {
       await axios.post(`${API_URL}/buses`, { busNumber: newBus });
-      showMessage(`Bus ${newBus} added!`);
-      setNewBus('');
-      fetchData(); // List ko refresh karein
-    } catch (err) {
-      setError("Failed to add bus.");
+      showMessageTimed(`Bus ${newBus} added`);
+      setNewBus("");
+      fetchData();
+    } catch {
+      setError("Failed to add bus");
     }
   };
 
-  // --- ASSIGNMENT HANDLER ---
   const handleAssignment = async (busId, driverUid, routeNumber) => {
-    if (!driverUid || !busId || !routeNumber) {
-      setError("Please select a bus, route, AND driver for assignment.");
+    if (!driverUid || !routeNumber) {
+      setError("Select driver and route");
       return;
     }
-    setError('');
-    
+    setError("");
     try {
-      // Backend ko data bhej dein
       await axios.post(`${API_URL}/assign`, {
-        driverUid: driverUid,
-        busId: busId,
-        routeNumber: routeNumber
+        driverUid,
+        busId,
+        routeNumber
       });
-      
-      showMessage("Assignment successful!");
-      fetchData(); // List ko refresh karein
-
+      showMessageTimed("Assignment successful");
+      fetchData();
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to assign.");
+      setError(err.response?.data?.message || "Assign failed");
     }
   };
+
+  const isBusAssigned = (bus) => bus.driverUid && bus.routeNumber;
+
+  if (showComplaints) {
+    return <AdminComplaints onBack={() => setShowComplaints(false)} />;
+  }
+
+  if (showAnnouncements) {
+    return (
+      <AdminAnnouncements
+        user={user}
+        onBack={() => setShowAnnouncements(false)}
+      />
+    );
+  }
 
   if (loading) {
     return (
@@ -111,9 +118,7 @@ function AdminDashboard({ user, onLogout }) {
           <h1>Admin Dashboard</h1>
           <button onClick={onLogout} className="logout-button">Logout</button>
         </header>
-        <div className="dashboard-content">
-          <div className="loading-container">Loading admin data...</div>
-        </div>
+        <div className="loading-container">Loading admin data...</div>
       </div>
     );
   }
@@ -122,79 +127,109 @@ function AdminDashboard({ user, onLogout }) {
     <div className="dashboard-container">
       <header className="dashboard-header">
         <h1>Admin Dashboard</h1>
+
+        <button
+          onClick={() => setShowAnnouncements(true)}
+          style={{
+            marginRight: "15px",
+            background: "#6F48FF",
+            padding: "10px 16px",
+            borderRadius: "8px",
+            color: "white",
+            fontWeight: "600",
+            cursor: "pointer"
+          }}
+        >
+          📢 Announcements
+        </button>
+
+        <button
+          onClick={() => setShowComplaints(true)}
+          style={{
+            marginRight: "15px",
+            background: "#5448C8",
+            padding: "10px 16px",
+            borderRadius: "8px",
+            color: "white",
+            fontWeight: "600",
+            cursor: "pointer"
+          }}
+        >
+          📣 Complaints Management
+        </button>
+
         <button onClick={onLogout} className="logout-button">Logout</button>
       </header>
 
       <div className="dashboard-content admin-dashboard">
         <div className="welcome-card">
           <h2>Admin Control Panel</h2>
-          <p>Welcome, {user.name}. Manage all buses, routes, and drivers here.</p>
+          <p>Welcome, {user.name}. Manage everything here.</p>
         </div>
 
         {error && <p className="error-message">{error}</p>}
         {message && <p className="message">{message}</p>}
 
-        {/* --- ASSIGNMENT CARD --- */}
         <div className="card admin-card full-width">
-          <h3>Bus Assignments</h3>
-          <p>Assign routes and drivers to available buses.</p>
+          <h3>🚌 Bus Assignments</h3>
           <table className="assignment-table">
             <thead>
               <tr>
                 <th>Bus</th>
-                <th>Assigned Route</th>
-                <th>Assigned Driver</th>
+                <th>Route</th>
+                <th>Driver</th>
                 <th>Action</th>
               </tr>
             </thead>
             <tbody>
-              {buses.length === 0 && (
-                <tr><td colSpan="4">No buses found. Add one below.</td></tr>
-              )}
-              {buses.map(bus => (
+              {buses.map((bus) => (
                 <tr key={bus.busId}>
-                  <td><strong>{bus.busNumber}</strong></td>
-                  {/* Route Dropdown */}
+                  <td>{bus.busNumber}</td>
                   <td>
-                    <select
-                      id={`route-select-${bus.busId}`}
-                      defaultValue={bus.routeNumber || ''}
-                    >
-                      <option value="">-- Select Route --</option>
-                      {routes.map(route => (
-                        <option key={route.id} value={route.routeNumber}>
-                          {route.routeNumber}
-                        </option>
-                      ))}
-                    </select>
+                    {isBusAssigned(bus) ? (
+                      <span>{bus.routeNumber}</span>
+                    ) : (
+                      <select id={`route-${bus.busId}`}>
+                        <option value="">Select Route</option>
+                        {routes.map((r) => (
+                          <option key={r.id} value={r.routeNumber}>
+                            {r.routeNumber}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </td>
-                  {/* Driver Dropdown */}
                   <td>
-                    <select
-                      id={`driver-select-${bus.busId}`}
-                      defaultValue={bus.driverUid || ''}
-                    >
-                      <option value="">-- Select Driver --</option>
-                      {drivers.map(driver => (
-                        // Hum 'uid' (VARCHAR) ko value mein use kar rahe hain
-                        <option key={driver.uid} value={driver.uid}>
-                          {driver.name} ({driver.collegeId})
-                        </option>
-                      ))}
-                    </select>
+                    {isBusAssigned(bus) ? (
+                      <span>{bus.driverName}</span>
+                    ) : (
+                      <select id={`driver-${bus.busId}`}>
+                        <option value="">Select Driver</option>
+                        {drivers.map((d) => (
+                          <option key={d.uid} value={d.uid}>
+                            {d.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </td>
-                  {/* Assign Button */}
                   <td>
-                    <button 
-                      className="assign-button"
-                      onClick={() => handleAssignment(
-                        bus.busId,
-                        document.getElementById(`driver-select-${bus.busId}`).value,
-                        document.getElementById(`route-select-${bus.busId}`).value
-                      )}
-                    >
-                      Assign
-                    </button>
+                    {isBusAssigned(bus) ? (
+                      <span className="assigned-badge">Assigned</span>
+                    ) : (
+                      <button
+                        className="assign-button"
+                        onClick={() =>
+                          handleAssignment(
+                            bus.busId,
+                            document.getElementById(`driver-${bus.busId}`).value,
+                            document.getElementById(`route-${bus.busId}`).value
+                          )
+                        }
+                      >
+                        Assign
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -202,25 +237,22 @@ function AdminDashboard({ user, onLogout }) {
           </table>
         </div>
 
-        {/* --- MANAGE ROUTES & BUSES (SIDE-BY-SIDE) --- */}
         <div className="admin-grid">
           <div className="card admin-card">
             <h3>Manage Routes</h3>
             <form onSubmit={handleAddRoute}>
               <input
                 type="text"
-                placeholder="New Route (e.g., R50)"
+                placeholder="New Route"
                 value={newRoute}
                 onChange={(e) => setNewRoute(e.target.value)}
               />
-              <button type="submit">Add Route</button>
+              <button type="submit">Add</button>
             </form>
+
             <ul className="item-list">
-              {routes.map(route => (
-                <li key={route.id}>
-                  <span>{route.routeNumber}</span>
-                  {/* Delete button (humne abhi nahin banaya) */}
-                </li>
+              {routes.map((r) => (
+                <li key={r.id}>{r.routeNumber}</li>
               ))}
             </ul>
           </div>
@@ -230,23 +262,20 @@ function AdminDashboard({ user, onLogout }) {
             <form onSubmit={handleAddBus}>
               <input
                 type="text"
-                placeholder="New Bus (e.g., PB 01 9999)"
+                placeholder="New Bus"
                 value={newBus}
                 onChange={(e) => setNewBus(e.target.value)}
               />
-              <button type="submit">Add Bus</button>
+              <button type="submit">Add</button>
             </form>
+
             <ul className="item-list">
-              {buses.map(bus => (
-                <li key={bus.busId}>
-                  <span>{bus.busNumber}</span>
-                  {/* Delete button (humne abhi nahin banaya) */}
-                </li>
+              {buses.map((b) => (
+                <li key={b.busId}>{b.busNumber}</li>
               ))}
             </ul>
           </div>
         </div>
-
       </div>
     </div>
   );

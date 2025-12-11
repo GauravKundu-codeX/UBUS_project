@@ -3,85 +3,95 @@ import axios from 'axios';
 import { io } from 'socket.io-client';
 import MapComponent from '../components/MapComponent';
 
-// Hamare backend server ka URL
-// const API_URL = 'http://localhost:3001/api';
-const API_URL = `${import.meta.env.VITE_API_BASE_URL}/api`;
+import '../styles/driverDashboard.css';
 
-// const SOCKET_URL = 'http://localhost:3001';
+// Backend server URL
+const API_URL = `${import.meta.env.VITE_API_BASE_URL}/api`;
 const SOCKET_URL = import.meta.env.VITE_API_BASE_URL;
 
-
-// --- YEH RAHA FIX ---
-// Socket ko component ke bahar (outside) banayein
+// Create socket outside component
 const socket = io(SOCKET_URL, {
   reconnection: true,
   reconnectionAttempts: 5
 });
-// --- FIX END ---
 
 function DriverDashboard({ user, onLogout }) {
-  const [assignedBus, setAssignedBus] = useState(null); // Driver ki bus
-  const [myLocation, setMyLocation] = useState(null); // Driver ki live location
+  const [assignedBus, setAssignedBus] = useState(null);
+  const [myLocation, setMyLocation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [locationAccuracy, setLocationAccuracy] = useState(null);
+  const [lastUpdateTime, setLastUpdateTime] = useState(null);
   
-  // locationIntervalRef ek "memory" jaisa hai jo 
-  // har 10 second waale timer (setInterval) ko store karega
   const locationIntervalRef = useRef(null);
 
-  // Jab page load ho, driver ki assigned bus ko fetch karein
+  // Fetch driver's assigned bus
   useEffect(() => {
     const fetchMyBus = async () => {
       try {
         const response = await axios.get(`${API_URL}/my-bus`, {
-          params: { driverUid: user.uid } // 'user.uid' ko backend ko bhejega
+          params: { driverUid: user.uid }
         });
         
         const bus = response.data;
         setAssignedBus(bus);
         
-        // Socket room join karein
+        // Join socket room
         if (bus.routeNumber) {
           socket.emit('joinRouteRoom', bus.routeNumber);
-          console.log(`Socket joining room: ${bus.routeNumber}`);
+          console.log(`✅ Socket joined room: ${bus.routeNumber}`);
         }
 
-        // Agar bus pehle se "LIVE" hai (server crash ke baad), toh location bhejna shuru kar dein
+        // If trip is already active (after server restart), start sending location
         if (bus.isTripActive) {
           startSendingLocation(bus);
         }
         
       } catch (err) {
-        setError(err.response?.data?.message || "Error fetching bus assignment.");
+        setError(err.response?.data?.message || "❌ Error fetching bus assignment.");
+        console.error("Fetch Error:", err);
       }
       setLoading(false);
     };
 
     fetchMyBus();
     
-    // Cleanup: Jab component hatega (logout), toh timer band kar dein
+    // Socket connection listeners
+    socket.on("connect", () => {
+      console.log("✅ Socket connected");
+    });
+
+    socket.on("disconnect", () => {
+      console.log("⚠️ Socket disconnected");
+    });
+
+    socket.on("connect_error", (err) => {
+      console.error("❌ Socket error:", err);
+    });
+    
+    // Cleanup
     return () => {
       if (locationIntervalRef.current) {
         clearInterval(locationIntervalRef.current);
       }
-      // Hum socket ko yahan disconnect nahin karenge, 
-      // taaki woh poore app session tak zinda rahe
+      socket.off("connect");
+      socket.off("disconnect");
+      socket.off("connect_error");
     };
-  }, [user.uid]); // Yeh effect tabhi chalega jab user login karega
+  }, [user.uid]);
 
-
-  // --- Location Bhejne Ka Logic ---
-  
+  // Send location update
   const sendLocationUpdate = (bus) => {
-    // 1. Browser se GPS location maangein
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude, accuracy } = position.coords;
 
-        // Sirf high-accuracy GPS hi accept karein
+        setLocationAccuracy(accuracy);
+
+        // Only accept high-accuracy GPS
         if (accuracy > 500) {
-           setError(`Location not accurate (${accuracy.toFixed(0)}m).`);
-           return;
+          setError(`⚠️ Location not accurate enough (${accuracy.toFixed(0)}m). Move to a clearer area.`);
+          return;
         }
 
         const locationData = {
@@ -90,93 +100,98 @@ function DriverDashboard({ user, onLogout }) {
           timestamp: Date.now()
         };
         
-        setMyLocation(locationData); // Driver ke apne map ko update karein
+        setMyLocation(locationData);
+        setLastUpdateTime(new Date());
         setError('');
 
-        // 2. Backend ko location bhej dein (HTTP POST se database update)
+        // Update database via HTTP
         try {
           await axios.post(`${API_URL}/update-location`, {
             busId: bus.busId,
             lat: locationData.lat,
             lng: locationData.lng
           });
+          console.log("📍 Location updated in database");
         } catch (err) {
-           console.error("Failed to post location to DB", err);
+          console.error("❌ Failed to update location in DB:", err);
         }
         
-        // 3. Backend ko location bhej dein (Socket.IO se live broadcast)
+        // Broadcast via Socket.IO
         socket.emit('sendLocation', {
           routeNumber: bus.routeNumber,
           location: locationData
         });
+        console.log("📡 Location broadcasted via socket");
 
       },
       (err) => {
-        console.warn(`Geolocation error: ${err.message}`);
-        setError("Could not get location. Please enable location services.");
+        console.warn(`⚠️ Geolocation error: ${err.message}`);
+        setError("❌ Could not get location. Please enable GPS and location services.");
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
   
-  // --- Trip Start/Stop Logic ---
-
+  // Start sending location every 10 seconds
   const startSendingLocation = (bus) => {
-    // Pehle, turant ek baar location bhejein
+    // Send immediately
     sendLocationUpdate(bus);
     
-    // Phir, har 10 second mein location bhejte rahein
-    // (Puraane interval ko clear karein, agar koi hai toh)
+    // Then send every 10 seconds
     if (locationIntervalRef.current) {
       clearInterval(locationIntervalRef.current);
     }
     locationIntervalRef.current = setInterval(() => sendLocationUpdate(bus), 10000);
   };
 
+  // Stop sending location
   const stopSendingLocation = () => {
-    // Timer ko band kar dein
     if (locationIntervalRef.current) {
       clearInterval(locationIntervalRef.current);
       locationIntervalRef.current = null;
     }
-    setMyLocation(null); // Apne map se location hata dein
+    setMyLocation(null);
+    setLastUpdateTime(null);
+    setLocationAccuracy(null);
   };
 
-  // 'Start Trip' / 'Stop Trip' button dabane par
+  // Toggle trip status
   const handleToggleTrip = async () => {
     const newTripStatus = !assignedBus.isTripActive;
     
     try {
-      // 1. Backend (DB) ko batayein ki trip start/stop ho gaya hai
+      // Update database
       await axios.post(`${API_URL}/trip-status`, {
         busId: assignedBus.busId,
         isTripActive: newTripStatus
       });
       
-      // 2. Socket (Live) par sabko batayein ki trip start/stop ho gaya hai
+      // Broadcast via socket
       socket.emit('tripStatus', {
         routeNumber: assignedBus.routeNumber,
         isActive: newTripStatus
       });
       
-      // 3. Apne local state ko update karein
+      // Update local state
       setAssignedBus(prevBus => ({ ...prevBus, isTripActive: newTripStatus }));
 
-      // 4. Location timer ko chalu ya band karein
+      // Start or stop location updates
       if (newTripStatus) {
-        startSendingLocation(assignedBus); // Trip Start
+        startSendingLocation(assignedBus);
+        setError('');
       } else {
-        stopSendingLocation(); // Trip Stop
+        stopSendingLocation();
       }
+
+      console.log(`${newTripStatus ? '✅ Trip started' : '⏹️ Trip stopped'}`);
       
     } catch (err) {
-      setError("Failed to update trip status.");
+      setError("❌ Failed to update trip status. Please try again.");
+      console.error("Trip toggle error:", err);
     }
   };
 
-
-  // --- Render Functions ---
-  
+  // Loading state
   if (loading) {
     return (
       <div className="dashboard-container">
@@ -197,30 +212,56 @@ function DriverDashboard({ user, onLogout }) {
         <h1>Driver Dashboard</h1>
         <button onClick={onLogout} className="logout-button">Logout</button>
       </header>
+      
       <div className="dashboard-content">
         <div className="welcome-card">
           <h2>Welcome, {user.name}!</h2>
-          <p>Your Driver ID: <strong>{user.collegeId}</strong></p>
+          <p>
+            🆔 Your Driver ID: <strong>{user.collegeId}</strong>
+          </p>
         </div>
 
         {error && <p className="error-message">{error}</p>}
         
         {!assignedBus && !error && (
           <div className="card">
-            <h3>My Assignment</h3>
-            <p>You are not currently assigned to any bus.</p>
+            <h3>📋 My Assignment</h3>
+            <p style={{ textAlign: 'center', fontSize: '1.2rem', padding: '20px 0' }}>
+              ⚠️ You are not currently assigned to any bus.
+            </p>
+            <p style={{ textAlign: 'center', opacity: 0.7 }}>
+              Please contact your administrator for bus assignment.
+            </p>
           </div>
         )}
         
         {assignedBus && (
           <>
             <div className="card">
-              <h3>My Assignment</h3>
-              <p>Bus Number: <strong>{assignedBus.busNumber}</strong></p>
-              <p>Route Number: <strong>{assignedBus.routeNumber}</strong></p>
+              <h3>🚌 My Assignment</h3>
+              <p>
+                <span style={{ fontSize: '0.95rem', opacity: 0.8 }}>Bus Number:</span> 
+                <strong>{assignedBus.busNumber}</strong>
+              </p>
+              <p>
+                <span style={{ fontSize: '0.95rem', opacity: 0.8 }}>Route Number:</span> 
+                <strong>{assignedBus.routeNumber}</strong>
+              </p>
               
               <div className={`status-indicator ${assignedBus.isTripActive ? 'active' : 'inactive'}`}>
-                <h3>{assignedBus.isTripActive ? 'TRIP IS LIVE' : 'TRIP INACTIVE'}</h3>
+                <h3>
+                  {assignedBus.isTripActive ? '🚍 TRIP IS LIVE' : '⏸️ TRIP INACTIVE'}
+                </h3>
+                {assignedBus.isTripActive && locationAccuracy && (
+                  <p style={{ marginTop: '10px', fontSize: '0.95rem' }}>
+                    📡 GPS Accuracy: <strong>{locationAccuracy.toFixed(0)}m</strong>
+                  </p>
+                )}
+                {assignedBus.isTripActive && lastUpdateTime && (
+                  <p style={{ fontSize: '0.95rem' }}>
+                    🕒 Last Update: <strong>{lastUpdateTime.toLocaleTimeString()}</strong>
+                  </p>
+                )}
               </div>
               
               <button
@@ -232,13 +273,22 @@ function DriverDashboard({ user, onLogout }) {
             </div>
             
             <div className="card">
-              <h3>My Location</h3>
+              <h3>📍 My Location</h3>
               <div className="map-container">
                 {assignedBus.isTripActive && myLocation ? (
                   <MapComponent location={myLocation} />
                 ) : (
                   <div className="map-placeholder">
-                    <p>{assignedBus.isTripActive ? "Getting your location..." : "Start your trip to see your live location."}</p>
+                    <p>
+                      {assignedBus.isTripActive 
+                        ? "🔄 Getting your location..." 
+                        : "🚀 Start your trip to see your live location"}
+                    </p>
+                    {!assignedBus.isTripActive && (
+                      <p style={{ fontSize: '1rem', opacity: 0.7, marginTop: '10px' }}>
+                        💡 Click "Start Trip" button above to begin tracking
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
