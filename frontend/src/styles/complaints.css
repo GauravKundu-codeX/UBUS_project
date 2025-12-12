@@ -1,24 +1,204 @@
+/* complaints.css */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  background: #ffffff;
+}
+
 .complaint-page {
-  padding: 20px;
+  min-height: 100vh;
+  background: #ffffff;
+  padding: 40px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.complaint-page h2 {
+  font-size: 1.8rem;
+  color: #dc2626;
+  margin-bottom: 24px;
+  font-weight: 700;
+  border-bottom: 3px solid #dc2626;
+  padding-bottom: 12px;
 }
 
 .complaint-page form {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  background: #ffffff;
+  padding: 30px;
+  border-radius: 12px;
+  border: 2px solid #fee;
+  box-shadow: 0 2px 12px rgba(220, 38, 38, 0.08);
+  margin-bottom: 30px;
+}
+
+.complaint-page select,
+.complaint-page textarea {
+  width: 100%;
+  padding: 14px 16px;
+  border: 2px solid #f0f0f0;
+  border-radius: 10px;
+  font-size: 1rem;
+  margin-bottom: 16px;
+  font-family: inherit;
+  transition: all 0.3s ease;
+  background: #ffffff;
+  color: #333;
+}
+
+.complaint-page select:focus,
+.complaint-page textarea:focus {
+  outline: none;
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
 }
 
 .complaint-page textarea {
-  height: 100px;
+  min-height: 150px;
+  resize: vertical;
+}
+
+.complaint-page select {
+  cursor: pointer;
+}
+
+.complaint-page button[type="submit"] {
+  width: 100%;
+  padding: 14px;
+  background: #dc2626;
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.complaint-page button[type="submit"]:hover {
+  background: #b91c1c;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+}
+
+.complaint-page > p {
+  padding: 16px;
+  border-radius: 10px;
+  text-align: center;
+  font-weight: 500;
+  font-size: 1rem;
+  margin-bottom: 20px;
+}
+
+.complaint-page .error-message {
+  background: #fef2f2;
+  border: 2px solid #fca5a5;
+  color: #dc2626;
+  padding: 16px;
+  border-radius: 10px;
+  text-align: center;
+  font-weight: 500;
+  font-size: 1rem;
+  margin: 20px 0;
+}
+
+.complaint-page hr {
+  border: none;
+  border-top: 2px solid #fee;
+  margin: 40px 0;
 }
 
 .complaint-page table {
   width: 100%;
-  margin-top: 15px;
   border-collapse: collapse;
+  background: #ffffff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  border: 2px solid #f5f5f5;
+  margin-bottom: 30px;
 }
 
-.complaint-page th, .complaint-page td {
-  border: 1px solid #ddd;
-  padding: 8px;
+.complaint-page table thead {
+  background: #dc2626;
+}
+
+.complaint-page table thead th {
+  color: #ffffff;
+  font-weight: 700;
+  padding: 16px;
+  text-align: left;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.complaint-page table tbody tr {
+  border-bottom: 1px solid #f0f0f0;
+  transition: all 0.2s ease;
+}
+
+.complaint-page table tbody tr:hover {
+  background: #fff5f5;
+}
+
+.complaint-page table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.complaint-page table tbody td {
+  padding: 16px;
+  color: #555;
+  font-size: 0.95rem;
+}
+
+.complaint-page > button {
+  padding: 12px 24px;
+  background: transparent;
+  color: #dc2626;
+  border: 2px solid #dc2626;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 20px;
+}
+
+.complaint-page > button:hover {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+@media (max-width: 768px) {
+  .complaint-page {
+    padding: 20px;
+  }
+
+  .complaint-page h2 {
+    font-size: 1.4rem;
+  }
+
+  .complaint-page form {
+    padding: 20px;
+  }
+
+  .complaint-page table {
+    font-size: 0.85rem;
+  }
+
+  .complaint-page table thead th,
+  .complaint-page table tbody td {
+    padding: 12px 8px;
+  }
+
+  .complaint-page table {
+    display: block;
+    overflow-x: auto;
+  }
 }

@@ -1,118 +1,259 @@
-.admin-complaints-container {
-  padding: 25px;
-  animation: fadeIn 0.4s ease;
+/* Admin Complaints Styling */
+
+.admin-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+  font-size: 1.125rem;
+  color: #6b7280;
 }
 
+.admin-complaints-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+/* Header Section */
 .complaints-header {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  color: white;
+  padding: 1.5rem 2rem;
+  border-radius: 0.75rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 6px rgba(220, 38, 38, 0.2);
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 1rem;
+}
+
+.complaints-header h2 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 0;
+  flex: 1;
 }
 
 .back-btn {
-  background: #4a4fff;
+  background: rgba(255, 255, 255, 0.2);
   color: white;
-  border: none;
-  padding: 10px 16px;
-  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
   cursor: pointer;
-  font-weight: 600;
+  transition: all 0.2s ease;
 }
 
 .back-btn:hover {
-  background: #3a3ce0;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateX(-2px);
 }
 
+/* Filter Section */
 .filter-row {
-  margin: 20px 0;
+  background: white;
+  padding: 1.25rem 1.5rem;
+  border-radius: 0.75rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 1rem;
+}
+
+.filter-row label {
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.9375rem;
 }
 
 .filter-select {
-  padding: 8px 12px;
-  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.5rem;
+  font-size: 0.9375rem;
+  color: #374151;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 150px;
 }
 
+.filter-select:hover {
+  border-color: #dc2626;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+/* Table Wrapper */
 .complaints-table-wrapper {
-  overflow-x: auto;
-  margin-top: 15px;
+  background: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
 }
 
+/* Table Styling */
 .complaints-table {
   width: 100%;
   border-collapse: collapse;
-  background: white;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  font-size: 0.875rem;
 }
 
-.complaints-table th {
-  background: #f4f6ff;
-  padding: 12px;
+.complaints-table thead {
+  background: #dc2626;
+  color: white;
+}
+
+.complaints-table thead th {
+  padding: 1rem;
   text-align: left;
-  font-size: 0.95rem;
-  border-bottom: 2px solid #ddd;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  white-space: nowrap;
 }
 
-.complaints-table td {
-  padding: 10px;
-  border-bottom: 1px solid #eee;
+.complaints-table tbody tr {
+  border-bottom: 1px solid #f3f4f6;
+  transition: background-color 0.2s ease;
+}
+
+.complaints-table tbody tr:hover {
+  background-color: #fef2f2;
+}
+
+.complaints-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.complaints-table tbody td {
+  padding: 1rem;
+  color: #374151;
+  vertical-align: middle;
 }
 
 .no-data {
   text-align: center;
-  padding: 20px;
-  font-size: 1.1rem;
-  color: #888;
+  color: #9ca3af;
+  padding: 3rem 1rem;
+  font-style: italic;
 }
 
 .description-cell {
-  max-width: 280px;
-  white-space: normal;
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+/* Status Badges */
 .status-badge {
-  padding: 6px 10px;
-  border-radius: 8px;
+  display: inline-block;
+  padding: 0.375rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
   font-weight: 600;
-  font-size: 0.85rem;
   text-transform: capitalize;
+  white-space: nowrap;
 }
 
-/* coloured status badges */
 .status-badge.pending {
-  background: #fcebcd;
-  color: #b98100;
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .status-badge.inprogress {
-  background: #e3e9ff;
-  color: #3b4acb;
+  background: #dbeafe;
+  color: #1e40af;
 }
 
 .status-badge.resolved {
-  background: #d4f4d4;
-  color: #0a7a24;
+  background: #d1fae5;
+  color: #065f46;
 }
 
 .status-badge.rejected {
-  background: #ffd4d4;
-  color: #c40000;
+  background: #fee2e2;
+  color: #991b1b;
 }
 
+/* Status Select Dropdown */
 .status-select {
-  padding: 6px;
-  border-radius: 6px;
+  padding: 0.375rem 0.75rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  color: #374151;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 120px;
 }
 
-.admin-loading {
-  padding: 40px;
-  text-align: center;
-  font-size: 1.2rem;
+.status-select:hover {
+  border-color: #dc2626;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+.status-select:focus {
+  outline: none;
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .complaints-table {
+    font-size: 0.8125rem;
+  }
+
+  .complaints-table thead th,
+  .complaints-table tbody td {
+    padding: 0.75rem;
+  }
+
+  .description-cell {
+    max-width: 180px;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-complaints-container {
+    padding: 1rem;
+  }
+
+  .complaints-header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 1.25rem 1.5rem;
+  }
+
+  .complaints-header h2 {
+    font-size: 1.5rem;
+  }
+
+  .filter-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .filter-select {
+    width: 100%;
+  }
+
+  .complaints-table-wrapper {
+    overflow-x: auto;
+  }
+
+  .complaints-table {
+    min-width: 1000px;
+  }
 }
